@@ -8,7 +8,8 @@ scorefile_source: "PGS Catalog, harmonized (hmPOS), https://ftp.ebi.ac.uk/pub/da
 target_genotypes:
   source: "1000 Genomes Phase 3 (NCBI mirror), release 20130502"
   n_samples: 2504
-  extraction: "bcftools remote region query (-R), por posicao exata de cada variante do scorefile, por cromossomo"
+  extraction: "bcftools remote region query (-R), por posicao exata, por cromossomo"
+  n_positions_extracted: 59693  # 313 do scorefile + 59385 do painel de ancestralidade (ver abaixo)
 
 pipeline:
   tool: pgsc_calc
@@ -19,7 +20,26 @@ pipeline:
     nextflow run pgscatalog/pgsc_calc -profile conda -resume
     --input samplesheet.csv --scorefile PGS000004_hmPOS_GRCh37.txt.gz
     --target_build GRCh37 --max_memory 12.GB --max_cpus 3
+    --run_ancestry pgsc_1000G_v1.tar.zst (GRCh37 subset)
     --outdir 01_baseline_prs/pgsc_calc_run
+
+ancestry_panel:
+  status: concluido
+  reference_source: "pgsc_calc ancestry reference DB (1000G-only), https://ftp.ebi.ac.uk/pub/databases/spot/pgs/resources/pgsc_1000G_v1.tar.zst"
+  download_method: "aria2c (-x5 -s15 -k500M), reinvocado em loop externo com -c (continue) ate completar -- o continuo e os blocos manuais via curl Range falharam repetidamente nesse host"
+  problema_estrutural_descoberto: >
+    Os 313 SNPs do PGS000004 nao sao um painel de ancestralidade: apos LD-pruning
+    bounded pelo alvo, sobravam so 114 marcadores mal distribuidos (varios cromossomos
+    com zero), quebrando a etapa INTERSECT_THINNED. Resolvido extraindo um painel de
+    ancestralidade dedicado, genome-wide, direto do proprio painel de referencia
+    (1000G GRCh37), independente do alvo de 313 SNPs.
+  painel_ancestralidade_dedicado:
+    metodo: "plink2 QC (geno/mind/maf/hwe, iguais aos defaults do pgsc_calc) + --indep-pairwise 1000 50 0.05, excluindo high-LD-regions-hg19-GRCh37.txt (asset do proprio pgsc_calc), direto no GRCh37_1000G_ALL.pgen do painel de referencia (84.8M variantes antes do QC)"
+    n_marcadores_apos_qc: 3675797
+    n_marcadores_apos_pruning: 59385
+    distribuicao: "bem distribuida nos 22 autossomos (1079-4816 por cromossomo), sem cromossomo vazio"
+  resultado: "colunas SUM, Z_MostSimilarPop, Z_norm1, Z_norm2, percentile_MostSimilarPop em kgpphase3_pgs.txt.gz; PCA (PC1-10) + atribuicao RF de ancestralidade em kgpphase3_popsimilarity.txt.gz"
+  validacao: "atribuicao de superpopulacao via PCA+RF do pgsc_calc discorda do painel real do 1000G em so 5/2504 amostras (0.20%)"
 
 harmonizacao:
   politica: "apenas variantes nao ambiguas (A/T, C/G excluidas) -- Configuracao 1 da matriz experimental (Etapa B)"
@@ -42,7 +62,8 @@ notas:
      um cohort imputado contra o 1000G: a diferenca se explica pelos 9 sitios multialelicos,
      que imputadores tipicamente ja separam em registros bialelicos antes da pontuacao,
      evitando essa exclusao especifica."
-  - "Z_norm1/Z_norm2 (normalizacao por ancestralidade do proprio pgsc_calc) NAO foram gerados
-     nesta rodada: o painel de referencia pgsc_1000G_v1.tar.zst (~7GB) falhou repetidamente
-     no download via ftp.ebi.ac.uk (download continuo e em blocos via Range, ambos travaram
-     por instabilidade de rede). Deferido -- nao bloqueia o baseline (SUM)."
+  - "Z_norm1/Z_norm2/Z_MostSimilarPop zeram a media (-0.02 a 0.03) e normalizam o SD (~0.95-1.09)
+     em TODAS as superpopulacoes, contra medias de -0.01 a -0.57 e SDs de 0.52-0.61 no SUM bruto.
+     Confirma empiricamente a Secao 4 do PROJECT_PLAN.md: a normalizacao por ancestralidade
+     remove por construcao as diferencas de distribuicao entre populacoes -- isso nao significa
+     que a diferenca genetica 'desapareceu', e a transformacao que a produz."
