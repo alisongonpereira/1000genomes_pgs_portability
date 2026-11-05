@@ -7,12 +7,26 @@ reference_population: EUR  # mantido como referencia de apresentacao (ver discus
 
 config2_keep_ambiguous:
   flag: "--keep_ambiguous true"
-  pressuposto: >
-    Assume que o scorefile (PGS Catalog, hmPOS harmonizado) e o alvo (1000G Phase 3,
-    GRCh37) reportam as variantes na mesma orientacao de strand. Como ambos usam a
-    mesma convencao de referencia GRCh37, esse pressuposto e razoavel aqui -- nao e
-    uma inferencia estatistica por frequencia alelica, e uma suposicao de convencao
-    de build compartilhada.
+  pressuposto_do_pgsc_calc: >
+    A flag em si NAO faz checagem por variante -- so assume que o scorefile
+    (PGS Catalog, hmPOS harmonizado) e o alvo (1000G Phase 3, GRCh37) reportam
+    as variantes na mesma orientacao de strand, por usarem a mesma convencao
+    de build. Isso e uma suposicao, nao uma verificacao.
+  validacao_independente_por_frequencia:
+    metodo: >
+      Comparada a allelefrequency_effect do scorefile (GWAS original, Mavaddat
+      et al., coorte majoritariamente europeia/BCAC) contra a frequencia do
+      alelo de efeito observada diretamente no 1000G Phase 3, restrita a
+      amostras EUR (bcftools +fill-tags -t AF, por variante). Usar so EUR evita
+      confundir erro de orientacao de fita com diferenca real de frequencia
+      entre populacoes (testei primeiro com as 5 populacoes agrupadas e deu
+      4/30 discordantes -- artefato de popular pooling, nao de fita; refeito
+      so com EUR, que e comparavel a coorte de descoberta do GWAS).
+    resultado: "30/30 variantes coerentes (|delta frequencia| < 0.15, maior delta observado = 0.039)"
+    arquivo: ambiguous_strand_validation.tsv
+    conclusao: >
+      A suposicao de mesma fita do --keep_ambiguous nao e so razoavel, ela se
+      confirma empiricamente para as 30 variantes ambiguas desta analise.
   variant_match_summary:
     matched_nao_ambiguas: 274
     matched_ambiguas_incluidas: 30   # agora contam como matched, nao excluidas
