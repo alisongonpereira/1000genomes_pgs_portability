@@ -1,0 +1,48 @@
+# Etapa A -- configuracao baseline do PRS313_BC (PGS000004)
+pgs_id: PGS000004
+pgs_name: PRS313_BC
+genome_build: GRCh37
+n_variants_scorefile: 313
+scorefile_source: "PGS Catalog, harmonized (hmPOS), https://ftp.ebi.ac.uk/pub/databases/spot/pgs/scores/PGS000004/ScoringFiles/Harmonized/PGS000004_hmPOS_GRCh37.txt.gz"
+
+target_genotypes:
+  source: "1000 Genomes Phase 3 (NCBI mirror), release 20130502"
+  n_samples: 2504
+  extraction: "bcftools remote region query (-R), por posicao exata de cada variante do scorefile, por cromossomo"
+
+pipeline:
+  tool: pgsc_calc
+  version: v2.3.0
+  nextflow_version: 26.10.4
+  execution_profile: conda (micromamba)
+  command: >
+    nextflow run pgscatalog/pgsc_calc -profile conda -resume
+    --input samplesheet.csv --scorefile PGS000004_hmPOS_GRCh37.txt.gz
+    --target_build GRCh37 --max_memory 12.GB --max_cpus 3
+    --outdir 01_baseline_prs/pgsc_calc_run
+
+harmonizacao:
+  politica: "apenas variantes nao ambiguas (A/T, C/G excluidas) -- Configuracao 1 da matriz experimental (Etapa B)"
+  genotipos_ausentes: "excluidos (nao imputados) -- decisao baseline"
+
+variant_match_summary:
+  matched: 274          # 87.5%
+  excluded_ambiguous: 30  # 9.6% -- exclusao por desenho (politica acima)
+  unmatched: 9           # 2.9% -- sitios multialelicos no 1000G Phase 3,
+                          # descartados pelo plink2 --max-alleles 2 do pgsc_calc
+                          # antes do matching (verificado manualmente no VCF bruto,
+                          # nao e falha de extracao nem ausencia real no 1000G)
+  total: 313
+
+output_metric: SUM  # score bruto (soma de dosagem x peso); AVG tambem disponivel
+denom_per_sample: 548  # 2 x 274 variantes matched (diploide)
+
+notas:
+  - "Numero de variantes usadas (274) e inferior ao benchmark de ~290-292 reportado para
+     um cohort imputado contra o 1000G: a diferenca se explica pelos 9 sitios multialelicos,
+     que imputadores tipicamente ja separam em registros bialelicos antes da pontuacao,
+     evitando essa exclusao especifica."
+  - "Z_norm1/Z_norm2 (normalizacao por ancestralidade do proprio pgsc_calc) NAO foram gerados
+     nesta rodada: o painel de referencia pgsc_1000G_v1.tar.zst (~7GB) falhou repetidamente
+     no download via ftp.ebi.ac.uk (download continuo e em blocos via Range, ambos travaram
+     por instabilidade de rede). Deferido -- nao bloqueia o baseline (SUM)."
