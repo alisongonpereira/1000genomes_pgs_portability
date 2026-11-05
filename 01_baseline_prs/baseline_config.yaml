@@ -42,8 +42,14 @@ ancestry_panel:
   validacao: "atribuicao de superpopulacao via PCA+RF do pgsc_calc discorda do painel real do 1000G em so 5/2504 amostras (0.20%)"
 
 harmonizacao:
-  politica: "apenas variantes nao ambiguas (A/T, C/G excluidas) -- Configuracao 1 da matriz experimental (Etapa B)"
-  genotipos_ausentes: "excluidos (nao imputados) -- decisao baseline"
+  politica: "apenas variantes nao ambiguas (A/T, C/G excluidas, --keep_ambiguous false) -- Configuracao 1 da matriz experimental (Etapa B). Ver 02_harmonization_configs/ para Configuracao 2 (--keep_ambiguous true)."
+  genotipos_ausentes: >
+    CORRECAO: na pratica rodou com mean-imputation (default do plink2 --score),
+    nao exclusao -- a logica do pgsc_calc so aplica no-mean-imputation quando
+    n_samples<50 (nosso alvo tem 2504). Sem efeito pratico: o VCF integrado do
+    1000G Phase 3 nao tem nenhum genotipo ausente (F_MISS=0 em todas as variantes
+    verificadas), entao excluir vs imputar da resultado identico aqui. Ver
+    02_harmonization_configs/config.yaml para detalhes.
 
 variant_match_summary:
   matched: 274          # 87.5%

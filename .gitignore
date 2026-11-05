@@ -10,3 +10,4 @@ resources/
 # (baseline_prs_scores.tsv, baseline_summary.tsv, baseline_config.yaml) in
 # 01_baseline_prs/ itself stay tracked.
 01_baseline_prs/pgsc_calc_run/
+02_harmonization_configs/keep_ambiguous/
