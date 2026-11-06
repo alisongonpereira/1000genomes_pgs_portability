@@ -1,0 +1,52 @@
+# Etapa B -- Eixo 1: Harmonizacao alelica
+# Configuracao 1 (baseline, 01_baseline_prs/): keep_ambiguous=false (default do pgsc_calc)
+# Configuracao 2 (esta pasta): keep_ambiguous=true
+
+pgs_id: PGS000004
+reference_population: EUR  # mantido como referencia de apresentacao (ver discussao no chat)
+
+config2_keep_ambiguous:
+  flag: "--keep_ambiguous true"
+  pressuposto_do_pgsc_calc: >
+    A flag em si NAO faz checagem por variante -- so assume que o scorefile
+    (PGS Catalog, hmPOS harmonizado) e o alvo (1000G Phase 3, GRCh37) reportam
+    as variantes na mesma orientacao de strand, por usarem a mesma convencao
+    de build. Isso e uma suposicao, nao uma verificacao.
+  validacao_independente_por_frequencia:
+    metodo: >
+      Comparada a allelefrequency_effect do scorefile (GWAS original, Mavaddat
+      et al., coorte majoritariamente europeia/BCAC) contra a frequencia do
+      alelo de efeito observada diretamente no 1000G Phase 3, restrita a
+      amostras EUR (bcftools +fill-tags -t AF, por variante). Usar so EUR evita
+      confundir erro de orientacao de fita com diferenca real de frequencia
+      entre populacoes (testei primeiro com as 5 populacoes agrupadas e deu
+      4/30 discordantes -- artefato de popular pooling, nao de fita; refeito
+      so com EUR, que e comparavel a coorte de descoberta do GWAS).
+    resultado: "30/30 variantes coerentes (|delta frequencia| < 0.15, maior delta observado = 0.039)"
+    arquivo: ambiguous_strand_validation.tsv
+    conclusao: >
+      A suposicao de mesma fita do --keep_ambiguous nao e so razoavel, ela se
+      confirma empiricamente para as 30 variantes ambiguas desta analise.
+  variant_match_summary:
+    matched_nao_ambiguas: 274
+    matched_ambiguas_incluidas: 30   # agora contam como matched, nao excluidas
+    unmatched: 9                      # inalterado (multialelicos, nao afetados por este flag)
+    total_usado_no_score: 304         # vs 274 no baseline
+
+eixo_genotipos_ausentes:
+  status: "nao aplicavel a esta fonte de dados"
+  motivo: >
+    O VCF integrado do 1000G Phase 3 nao tem nenhum genotipo ausente (F_MISS=0 em
+    todas as ~59k posicoes verificadas) -- e o callset final pos-QC do consorcio,
+    nao dado bruto de sequenciamento. A logica do pgsc_calc (modules/local/plink2_score.nf)
+    so aplica no-mean-imputation quando n_samples<50 (nosso alvo tem 2504), entao o
+    baseline tambem rodou com mean-imputation (default do plink2) -- mas como nao
+    ha nada para imputar, Configuracao 1 (excluir) e Configuracao 2 (imputar) dao
+    resultado IDENTICO aqui. Testar esse eixo exigiria uma fonte de genotipagem
+    com missingness real (ex. array clinico), nao o callset integrado do 1000G.
+  correcao_de_documentacao: >
+    01_baseline_prs/baseline_config.yaml dizia "genotipos_ausentes: excluidos (nao
+    imputados)" -- isso estava errado quanto ao mecanismo (foi mean-imputation por
+    default do plink2), mas sem efeito pratico nos resultados pela razao acima.
+
+resultado_sensibilidade: ver delta_Dgh_keepambig.tsv

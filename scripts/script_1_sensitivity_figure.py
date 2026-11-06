@@ -1,0 +1,186 @@
+"""Painel A/B/C -- figura de sensibilidade do PRS313_BC a escolhas de processamento.
+
+Entradas (geradas pelas etapas anteriores, nao recalculadas aqui):
+  01_baseline_prs/baseline_prs_scores.tsv      -- baseline (keep_ambiguous=false)
+  01_baseline_prs/sensitivity_Dgh.tsv          -- D_g,h do baseline por normalizacao
+  02_harmonization_configs/keep_ambiguous_scores.tsv
+  02_harmonization_configs/delta_Dgh_keepambig.tsv
+
+Saida: 03_figures/sensitivity_panel.png (e .pdf)
+"""
+import logging
+import sys
+from pathlib import Path
+from itertools import combinations
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import seaborn as sns
+from scipy.stats import spearmanr
+
+logging.basicConfig(level=logging.INFO, format="[STEP] %(message)s")
+log = logging.getLogger(__name__)
+
+ROOT = Path(__file__).resolve().parent.parent
+OUTDIR = ROOT / "03_figures"
+OUTDIR.mkdir(exist_ok=True)
+
+SUPERPOPS = ["AFR", "AMR", "EAS", "EUR", "SAS"]
+
+# Paleta validada (dataviz skill): ordem categorica fixa, nunca ciclada.
+COLOR_CONFIG1 = "#2a78d6"  # blue  -- Config 1 (ambiguas excluidas, baseline)
+COLOR_CONFIG2 = "#eb6834"  # orange -- Config 2 (ambiguas incluidas)
+POP_COLORS = {
+    "AFR": "#2a78d6",
+    "AMR": "#eb6834",
+    "EAS": "#1baf7a",
+    "EUR": "#eda100",
+    "SAS": "#e87ba4",
+}
+POP_MARKERS = {  # encoding secundario -- all-pairs CVD nao garante distincao so por cor
+    "AFR": "o",
+    "AMR": "s",
+    "EAS": "^",
+    "EUR": "D",
+    "SAS": "*",
+}
+GRID_COLOR = "#e1e0d9"
+AXIS_COLOR = "#c3c2b7"
+TEXT_PRIMARY = "#0b0b0b"
+TEXT_SECONDARY = "#52514e"
+
+
+def style_axes(ax):
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.spines["left"].set_color(AXIS_COLOR)
+    ax.spines["bottom"].set_color(AXIS_COLOR)
+    ax.tick_params(colors=TEXT_SECONDARY)
+    ax.grid(axis="y", color=GRID_COLOR, linewidth=0.8, zorder=0)
+    ax.set_axisbelow(True)
+
+
+def load_data():
+    log.info("Carregando baseline e configuracao keep_ambiguous")
+    base = pd.read_csv(ROOT / "01_baseline_prs/baseline_prs_scores.tsv", sep="\t")
+    keepamb = pd.read_csv(ROOT / "02_harmonization_configs/keep_ambiguous_scores.tsv", sep="\t")
+    return base, keepamb
+
+
+def panel_a(ax, base, keepamb):
+    log.info("Painel A: distribuicoes por populacao, Config 1 vs Config 2 (Z_EUR)")
+    a = base[["sample_id", "superpop", "Z_EUR"]].copy()
+    a["config"] = "Config 1 (ambíguas excluídas)"
+    b = keepamb[["sample_id", "superpop", "Z_EUR"]].copy()
+    b["config"] = "Config 2 (ambíguas incluídas)"
+    df = pd.concat([a, b], ignore_index=True)
+    df["superpop"] = pd.Categorical(df["superpop"], categories=SUPERPOPS, ordered=True)
+
+    sns.violinplot(
+        data=df, x="superpop", y="Z_EUR", hue="config", split=True, inner="quartile",
+        palette=[COLOR_CONFIG1, COLOR_CONFIG2], linewidth=1, ax=ax, cut=0,
+    )
+    ax.axhline(0, color=AXIS_COLOR, linewidth=1, zorder=1)
+    ax.set_xlabel("")
+    ax.set_ylabel("Score normalizado (referência: EUR)")
+    ax.set_title("A. Distribuição do PRS313_BC por população", loc="left", fontsize=11, color=TEXT_PRIMARY)
+    ax.legend(title="", loc="upper right", frameon=False, fontsize=8)
+    style_axes(ax)
+
+
+def panel_b(ax):
+    log.info("Painel B: heatmap de sensibilidade (ΔD_g,h vs baseline SUM)")
+    sens = pd.read_csv(ROOT / "01_baseline_prs/sensitivity_Dgh.tsv", sep="\t", index_col="pair")
+    delta_amb = pd.read_csv(ROOT / "02_harmonization_configs/delta_Dgh_keepambig.tsv", sep="\t", index_col="pair")
+
+    cols = ["Z_global", "Z_EUR", "Z_percop", "Z_MostSimilarPop", "Z_norm1", "Z_norm2"]
+    delta = sens[cols].sub(sens["raw_score_sum"], axis=0)
+    delta["keep_ambiguous"] = delta_amb["delta"]
+    delta = delta.rename(columns={
+        "Z_percop": "Z_percop\n(por população)",
+        "Z_MostSimilarPop": "Z_MostSimilarPop\n(pgsc_calc)",
+        "Z_norm1": "Z_norm1\n(pgsc_calc)",
+        "Z_norm2": "Z_norm2\n(pgsc_calc)",
+        "keep_ambiguous": "SUM\n(ambíguas incluídas)",
+    })
+
+    vmax = float(np.abs(delta.values).max())
+    sns.heatmap(
+        delta, ax=ax, cmap="RdBu_r", center=0, vmin=-vmax, vmax=vmax,
+        annot=True, fmt=".2f", annot_kws={"fontsize": 7.5},
+        linewidths=2, linecolor="#fcfcfb", cbar_kws={"label": "Δ diferença padronizada (Cohen's d)", "shrink": 0.8},
+    )
+    ax.set_xlabel("")
+    ax.set_ylabel("")
+    ax.set_title("B. Sensibilidade dos contrastes populacionais (Δ vs. SUM baseline)", loc="left", fontsize=11, color=TEXT_PRIMARY)
+    ax.tick_params(axis="x", labelsize=8, rotation=35)
+    ax.tick_params(axis="y", labelsize=8, rotation=0)
+
+
+def panel_c(ax, base, keepamb):
+    log.info("Painel C: estabilidade individual, Config 1 vs Config 2 (SUM bruto)")
+    m = base[["sample_id", "superpop", "raw_score_sum"]].merge(
+        keepamb[["sample_id", "raw_score_sum"]], on="sample_id", suffixes=("_c1", "_c2"),
+    )
+
+    rho, pval = spearmanr(m["raw_score_sum_c1"], m["raw_score_sum_c2"])
+    dec_c1 = pd.qcut(m["raw_score_sum_c1"], 10, labels=False, duplicates="drop")
+    dec_c2 = pd.qcut(m["raw_score_sum_c2"], 10, labels=False, duplicates="drop")
+    pct_changed = float((dec_c1 != dec_c2).mean() * 100)
+
+    for sp in SUPERPOPS:
+        sub = m[m["superpop"] == sp]
+        ax.scatter(
+            sub["raw_score_sum_c1"], sub["raw_score_sum_c2"],
+            s=14, alpha=0.55, color=POP_COLORS[sp], marker=POP_MARKERS[sp],
+            edgecolors="none", label=sp, zorder=3,
+        )
+
+    lims = [m[["raw_score_sum_c1", "raw_score_sum_c2"]].min().min() - 0.1,
+            m[["raw_score_sum_c1", "raw_score_sum_c2"]].max().max() + 0.1]
+    ax.plot(lims, lims, color=AXIS_COLOR, linewidth=1.2, linestyle="-", zorder=1)
+    ax.set_xlim(lims)
+    ax.set_ylim(lims)
+    ax.set_xlabel("SUM -- Config 1 (ambíguas excluídas)")
+    ax.set_ylabel("SUM -- Config 2 (ambíguas incluídas)")
+    ax.set_title("C. Estabilidade individual entre configurações", loc="left", fontsize=11, color=TEXT_PRIMARY)
+    ax.text(
+        0.03, 0.97,
+        f"Spearman ρ = {rho:.4f}\n{pct_changed:.1f}% mudou de decil",
+        transform=ax.transAxes, fontsize=9, color=TEXT_PRIMARY,
+        va="top", ha="left",
+    )
+    ax.legend(loc="lower right", frameon=False, fontsize=8, markerscale=1.6)
+    style_axes(ax)
+    return rho, pct_changed
+
+
+def main():
+    base, keepamb = load_data()
+
+    fig, axes = plt.subplots(1, 3, figsize=(18, 5.5))
+    fig.patch.set_facecolor("#fcfcfb")
+    for ax in axes:
+        ax.set_facecolor("#fcfcfb")
+
+    panel_a(axes[0], base, keepamb)
+    panel_b(axes[1])
+    rho, pct_changed = panel_c(axes[2], base, keepamb)
+
+    fig.suptitle(
+        "PRS313_BC (PGS000004) — sensibilidade a escolhas de harmonização e normalização, 1000 Genomes Phase 3",
+        fontsize=12, color=TEXT_PRIMARY, y=1.02,
+    )
+    fig.tight_layout()
+
+    out_png = OUTDIR / "sensitivity_panel.png"
+    out_pdf = OUTDIR / "sensitivity_panel.pdf"
+    fig.savefig(out_png, dpi=300, bbox_inches="tight", facecolor=fig.get_facecolor())
+    fig.savefig(out_pdf, bbox_inches="tight", facecolor=fig.get_facecolor())
+    log.info(f"Figura salva em {out_png} e {out_pdf}")
+    log.info(f"Painel C: Spearman rho={rho:.4f}, {pct_changed:.1f}% mudou de decil")
+
+
+if __name__ == "__main__":
+    main()
