@@ -1,23 +1,24 @@
-"""Etapa B -- analise fatorial: harmonizacao (2 niveis) x normalizacao (7 niveis).
+"""Stage B -- factorial analysis: harmonization (2 levels) x normalization (7 levels).
 
-O eixo "genotipos ausentes" nao entra: 1000G Phase 3 nao tem genotipo ausente
-em nenhuma das ~59k posicoes extraidas (ver 02_harmonization_configs/config.yaml),
-entao so tem 1 nivel observavel ali, nao 2 -- nao da pra fatorializar um eixo
-sem variacao.
+The "missing genotypes" axis is excluded: 1000G Phase 3 has no missing
+genotype at all in any of the ~59k extracted positions (see
+02_harmonization_configs/config.yaml), so that axis only has 1 observable
+level here, not 2 -- an axis with no variation cannot be factorialized.
 
-Pergunta: o efeito de uma escolha de normalizacao sobre a separacao entre
-populacoes (D_g,h) depende de qual configuracao de harmonizacao foi usada?
-Isso e testado como interacao: quanto o "quanto a normalizacao muda D_g,h"
-difere entre Config 1 (ambiguas excluidas) e Config 2 (ambiguas incluidas).
+Question: does the effect of a normalization choice on between-population
+separation (D_g,h) depend on which harmonization configuration was used?
+Tested as an interaction: how much "how much normalization changes D_g,h"
+differs between Configuration 1 (ambiguous variants excluded) and
+Configuration 2 (ambiguous variants included).
 
-Entradas:
-  01_baseline_prs/pgsc_calc_run/kgpphase3/score/kgpphase3_pgs.txt.gz   (harmonizacao Config 1)
+Inputs:
+  01_baseline_prs/pgsc_calc_run/kgpphase3/score/kgpphase3_pgs.txt.gz   (harmonization Config 1)
   02_harmonization_configs/keep_ambiguous/kgpphase3/score/kgpphase3_pgs.txt.gz  (Config 2)
 
-Saidas (04_factorial/):
-  factorial_Dgh.tsv       -- D_g,h para as 2x7 combinacoes, por par de populacao
-  factorial_interaction.tsv -- interacao harmonizacao x normalizacao, por par e metrica
-  interaction_summary.tsv -- |interacao| media por metrica, ranqueada
+Outputs (04_factorial/):
+  factorial_Dgh.tsv         -- D_g,h for all 2x7 combinations, per population pair
+  factorial_interaction.tsv -- harmonization x normalization interaction, per pair and metric
+  interaction_summary.tsv   -- mean |interaction| per metric, ranked
 """
 import csv
 import gzip
@@ -35,8 +36,8 @@ OUTDIR.mkdir(exist_ok=True)
 
 METRICS = ["SUM", "Z_global", "Z_EUR", "Z_percop", "Z_MostSimilarPop", "Z_norm1", "Z_norm2"]
 HARM_CONFIGS = {
-    "config1_ambig_excl": ROOT / "01_baseline_prs/pgsc_calc_run/kgpphase3/score/kgpphase3_pgs.txt.gz",
-    "config2_ambig_incl": ROOT / "02_harmonization_configs/keep_ambiguous/kgpphase3/score/kgpphase3_pgs.txt.gz",
+    "config1_ambiguous_excluded": ROOT / "01_baseline_prs/pgsc_calc_run/kgpphase3/score/kgpphase3_pgs.txt.gz",
+    "config2_ambiguous_included": ROOT / "02_harmonization_configs/keep_ambiguous/kgpphase3/score/kgpphase3_pgs.txt.gz",
 }
 
 
@@ -67,8 +68,8 @@ def load_pgs(path, panel):
 
 
 def add_affine_normalizations(rows):
-    """Z_global, Z_EUR, Z_percop -- transformacoes afins simples, calculadas aqui
-    (nao vem do pgsc_calc, sao as da Secao 4 do PROJECT_PLAN.md)."""
+    """Z_global, Z_EUR, Z_percop -- simple affine transforms (not from pgsc_calc,
+    these are the ones from PROJECT_PLAN.md Section 4), computed here."""
     sums = [r["SUM"] for r in rows]
     mu_g, sd_g = statistics.mean(sums), statistics.stdev(sums)
     eur = [r["SUM"] for r in rows if r["superpop"] == "EUR"]
@@ -102,50 +103,50 @@ def build_D(rows, superpops):
 
 def main():
     panel = load_panel()
-    log.info("Carregando as duas configuracoes de harmonizacao")
+    log.info("Loading both harmonization configurations")
     configs = {}
     for name, path in HARM_CONFIGS.items():
         rows = add_affine_normalizations(load_pgs(path, panel))
         configs[name] = rows
-        log.info(f"  {name}: {len(rows)} amostras")
+        log.info(f"  {name}: {len(rows)} samples")
 
-    superpops = sorted(set(r["superpop"] for r in configs["config1_ambig_excl"]))
+    superpops = sorted(set(r["superpop"] for r in configs["config1_ambiguous_excluded"]))
     D = {name: build_D(rows, superpops) for name, rows in configs.items()}
-    pairs = list(D["config1_ambig_excl"].keys())
+    pairs = list(D["config1_ambiguous_excluded"].keys())
 
-    log.info("Escrevendo factorial_Dgh.tsv (grade completa 2 harmonizacoes x 7 normalizacoes)")
+    log.info("Writing factorial_Dgh.tsv (full 2-harmonization x 7-normalization grid)")
     with open(OUTDIR / "factorial_Dgh.tsv", "w", newline="") as f:
         w = csv.writer(f, delimiter="\t")
-        w.writerow(["harmonizacao", "pair"] + METRICS)
+        w.writerow(["harmonization", "pair"] + METRICS)
         for cfg in HARM_CONFIGS:
             for p in pairs:
                 w.writerow([cfg, p] + [round(D[cfg][p][m], 4) for m in METRICS])
 
-    log.info("Calculando interacao harmonizacao x normalizacao")
-    # efeito da normalizacao dentro de cada harmonizacao: D[m] - D[SUM]
-    # interacao: diferenca desse efeito entre as duas harmonizacoes
+    log.info("Computing harmonization x normalization interaction")
+    # effect of normalization within each harmonization config: D[m] - D[SUM]
+    # interaction: difference of that effect between the two harmonization configs
     interaction_rows = []
     for p in pairs:
         for m in METRICS:
             if m == "SUM":
                 continue
-            eff1 = D["config1_ambig_excl"][p][m] - D["config1_ambig_excl"][p]["SUM"]
-            eff2 = D["config2_ambig_incl"][p][m] - D["config2_ambig_incl"][p]["SUM"]
+            eff1 = D["config1_ambiguous_excluded"][p][m] - D["config1_ambiguous_excluded"][p]["SUM"]
+            eff2 = D["config2_ambiguous_included"][p][m] - D["config2_ambiguous_included"][p]["SUM"]
             interaction_rows.append({
                 "pair": p, "metric": m,
-                "efeito_normalizacao_config1": round(eff1, 4),
-                "efeito_normalizacao_config2": round(eff2, 4),
-                "interacao": round(eff2 - eff1, 4),
+                "normalization_effect_config1": round(eff1, 4),
+                "normalization_effect_config2": round(eff2, 4),
+                "interaction": round(eff2 - eff1, 4),
             })
     with open(OUTDIR / "factorial_interaction.tsv", "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=list(interaction_rows[0].keys()), delimiter="\t")
         w.writeheader()
         w.writerows(interaction_rows)
 
-    log.info("Resumindo interacao media por metrica (|interacao| media sobre os 10 pares)")
+    log.info("Summarizing mean interaction per metric (mean |interaction| over the 10 pairs)")
     summary = {}
     for row in interaction_rows:
-        summary.setdefault(row["metric"], []).append(abs(row["interacao"]))
+        summary.setdefault(row["metric"], []).append(abs(row["interaction"]))
     summary_rows = sorted(
         ({"metric": m, "mean_abs_interaction": round(statistics.mean(v), 4),
           "max_abs_interaction": round(max(v), 4)} for m, v in summary.items()),
@@ -156,7 +157,7 @@ def main():
         w.writeheader()
         w.writerows(summary_rows)
 
-    log.info("Resumo (|interacao| media, maior primeiro):")
+    log.info("Summary (mean |interaction|, largest first):")
     for row in summary_rows:
         log.info(f"  {row['metric']:20s} mean={row['mean_abs_interaction']:.4f}  max={row['max_abs_interaction']:.4f}")
 

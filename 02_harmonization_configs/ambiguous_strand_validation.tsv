@@ -1,4 +1,4 @@
-chr	pos	effect_allele	other_allele	freq_effect_GWAS	freq_effect_EUR_1000G	abs_delta	coerente
+chr	pos	effect_allele	other_allele	freq_effect_GWAS	freq_effect_EUR_1000G	abs_delta	coherent
 1	100880328	T	A	0.4097	0.3817	0.028	True
 1	203770448	A	T	0.2715	0.2445	0.027	True
 10	123349324	T	A	0.0484	0.0567	0.0083	True

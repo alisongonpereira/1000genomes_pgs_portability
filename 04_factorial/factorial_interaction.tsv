@@ -1,4 +1,4 @@
-pair	metric	efeito_normalizacao_config1	efeito_normalizacao_config2	interacao
+pair	metric	normalization_effect_config1	normalization_effect_config2	interaction
 AFR-AMR	Z_global	0.0	0.0	0.0
 AFR-AMR	Z_EUR	0.0	0.0	-0.0
 AFR-AMR	Z_percop	-0.5917	-0.6085	-0.0168

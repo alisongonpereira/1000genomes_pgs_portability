@@ -1,220 +1,217 @@
-# PRS Portability Audit — Projeto Revisado
+# PRS Portability Audit — Revised Project
 
-## Pergunta científica central
+## Central scientific question
 
-Quanto das diferenças observadas nas distribuições de Polygenic Risk Scores entre populações pode ser atribuído às escolhas técnicas de processamento e normalização?
-
-**Em inglês:**
 To what extent do technical processing and normalization choices alter the observed differences in polygenic risk score distributions across populations?
 
-Essa reformulação torna o projeto metodologicamente mais interessante. Em vez de simplesmente mostrar que populações apresentam distribuições distintas de PRS, vamos investigar quanto essas diferenças mudam quando modificamos decisões analíticas específicas, mantendo constantes os dados e o modelo genético.
+This reformulation makes the project methodologically more interesting. Instead of simply showing that populations exhibit distinct PRS distributions, we investigate how much these differences change when we vary specific analytical decisions, holding the data and the genetic model constant.
 
-Há, porém, uma distinção fundamental: podemos quantificar a sensibilidade das distribuições às escolhas técnicas, mas não necessariamente decompor a diferença observada em uma porcentagem exclusivamente biológica e outra exclusivamente técnica.
+There is, however, a fundamental distinction: we can quantify the sensitivity of the distributions to technical choices, but we cannot necessarily decompose the observed difference into one percentage that is purely biological and another that is purely technical.
 
-Essa distinção será central para a credibilidade do projeto.
+This distinction will be central to the project's credibility.
 
-## 1. Objetivo científico
+## 1. Scientific objective
 
-### Objetivo geral
+### General objective
 
-Quantificar a influência de diferentes estratégias de processamento genômico e normalização sobre as distribuições de um mesmo PRS em populações geneticamente diversas.
+Quantify the influence of different genomic processing and normalization strategies on the distributions of the same PRS across genetically diverse populations.
 
-### Objetivos específicos
+### Specific objectives
 
-1. Avaliar como decisões de harmonização alélica, inclusão de variantes e tratamento de genótipos ausentes modificam os scores individuais.
-2. Comparar os efeitos da normalização global, da normalização baseada em uma população de referência e da normalização específica por população.
-3. Quantificar a estabilidade das diferenças entre populações sob diferentes configurações analíticas.
-4. Determinar em quais circunstâncias a normalização altera a interpretação dos resultados sem modificar a informação genética utilizada.
+1. Assess how decisions about allelic harmonization, variant inclusion, and missing-genotype handling modify individual scores.
+2. Compare the effects of global normalization, normalization based on a reference population, and population-specific normalization.
+3. Quantify the stability of between-population differences under different analytical configurations.
+4. Determine under which circumstances normalization alters the interpretation of results without modifying the underlying genetic information.
 
-**Hipótese central:** parte da variação observada nas distribuições de PRS depende das decisões analíticas, mas o efeito dessas decisões não é uniforme nem necessariamente equivalente entre populações.
+**Central hypothesis:** part of the observed variation in PRS distributions depends on analytical decisions, but the effect of these decisions is neither uniform nor necessarily equivalent across populations.
 
-## 2. Dados e escopo
+## 2. Data and scope
 
-Manteremos os dados propostos originalmente.
+We keep the originally proposed data.
 
-| Componente | Escolha |
+| Component | Choice |
 |---|---|
 | PRS | PRS313_BC — PGS000004 |
-| Fenótipo associado | Câncer de mama |
-| Fonte do PRS | PGS Catalog |
-| Dados genômicos | 1000 Genomes Project — Phase 3 |
-| Populações | AFR, AMR, EAS, EUR e SAS |
-| Linguagem | Python |
-| Análise | Comparação de configurações analíticas |
-| Produto | Repositório reproduzível + figura científica |
+| Associated phenotype | Breast cancer |
+| PRS source | PGS Catalog |
+| Genomic data | 1000 Genomes Project — Phase 3 |
+| Populations | AFR, AMR, EAS, EUR and SAS |
+| Language | Python |
+| Analysis | Comparison of analytical configurations |
+| Product | Reproducible repository + scientific figure |
 
-O experimento não avaliará a capacidade do PRS de predizer câncer de mama.
+The experiment will not evaluate the PRS's ability to predict breast cancer.
 
-A variável de interesse será a estabilidade das distribuições dos scores diante de alterações controladas no processamento.
+The variable of interest is the stability of score distributions under controlled changes to processing.
 
-## 3. Desenho experimental
+## 3. Experimental design
 
-Proponho organizar o estudo em três etapas.
+I propose organizing the study into three stages.
 
-### Etapa A — Construir uma distribuição de referência
+### Stage A — Build a reference distribution
 
-Primeiro, calcularemos o PRS utilizando uma configuração analítica previamente definida.
+First, we compute the PRS using a previously defined analytical configuration.
 
-Essa configuração será o nosso baseline.
+This configuration is our baseline.
 
-As condições serão:
+The conditions are:
 
-- Mesmo arquivo de pesos.
-- Mesmo conjunto de indivíduos.
-- Mesmo genoma de referência.
-- Harmonização alélica validada.
-- Critérios explícitos de inclusão e exclusão de variantes.
-- Registro de variantes ausentes e genótipos não chamados.
+- Same weights file.
+- Same set of individuals.
+- Same reference genome.
+- Validated allelic harmonization.
+- Explicit inclusion/exclusion criteria for variants.
+- Logging of missing variants and no-call genotypes.
 
-O resultado será uma distribuição inicial dos scores para cada população.
+The result is an initial score distribution for each population.
 
-Essa etapa é importante porque não podemos comparar o efeito de diferentes pipelines sem definir uma referência metodológica.
+This stage matters because we cannot compare the effect of different pipelines without first defining a methodological reference.
 
-### Etapa B — Modificar decisões técnicas isoladamente
+### Stage B — Vary technical decisions one at a time
 
-Aqui está o núcleo do projeto.
+This is the core of the project.
 
-**Matriz experimental**
+**Experimental matrix**
 
-| Dimensão | Configuração 1 | Configuração 2 |
+| Dimension | Configuration 1 | Configuration 2 |
 |---|---|---|
-| Harmonização | Apenas variantes não ambíguas | Inclusão adicional de variantes resolvidas por critérios validados |
-| Genótipos ausentes | Exclusão de loci incompletos | Imputação por dosagem esperada, com referência explicitada |
-| Normalização | Média e DP globais | Média e DP de EUR |
-| Normalização adicional | — | Média e DP específicos por população |
+| Harmonization | Non-ambiguous variants only | Additional inclusion of variants resolved by validated criteria |
+| Missing genotypes | Exclusion of incomplete loci | Imputation by expected dosage, with an explicit reference |
+| Normalization | Global mean and SD | EUR mean and SD |
+| Additional normalization | — | Population-specific mean and SD |
 
-A harmonização deve preservar a orientação correta dos alelos. Não devemos comparar um pipeline correto com outro deliberadamente incorreto como se fossem duas alternativas igualmente válidas.
+Harmonization must preserve correct allele orientation. We should not compare a correct pipeline against a deliberately incorrect one as if they were two equally valid alternatives.
 
-A normalização específica por população será tratada separadamente, como uma transformação diagnóstica.
+Population-specific normalization is treated separately, as a diagnostic transformation.
 
-**Por quê?**
+**Why?**
 
-Porque normalizar individualmente cada população para média zero e desvio-padrão um elimina, por construção, as diferenças entre médias e variâncias.
+Because standardizing each population individually to mean zero and SD one eliminates, by construction, differences in means and variances.
 
-Isso não demonstra que as diferenças anteriores eram artefatos.
+This does not demonstrate that the prior differences were artifacts.
 
-Demonstra apenas que a transformação removeu essas características das distribuições.
+It only demonstrates that the transformation removed those features from the distributions.
 
-Essa distinção será um dos resultados conceituais mais importantes do projeto.
+This distinction will be one of the project's most important conceptual results.
 
-### Etapa C
+### Stage C
 
-*(Reservado para a análise fatorial das combinações relevantes — ver seção 5.)*
+*(Reserved for the factorial analysis of relevant combinations — see Section 5.)*
 
-## 4. Como responder quantitativamente à pergunta?
+## 4. How do we answer the question quantitatively?
 
-Precisamos definir o que significa uma distribuição ter mudado.
+We need to define what it means for a distribution to have changed.
 
-Eu utilizaria quatro indicadores.
+I would use four indicators.
 
-| Indicador | O que quantifica | Interpretação |
+| Indicator | What it quantifies | Interpretation |
 |---|---|---|
-| Diferença padronizada entre médias | Separação entre populações | Sensibilidade dos contrastes populacionais |
-| Distância de Wasserstein | Distância entre distribuições | Mudanças na distribuição como um todo |
-| Correlação de Spearman | Estabilidade da ordenação individual | Quanto as decisões alteram o ranking dos indivíduos |
-| Mudança de percentil | Reclassificação relativa | Quantos indivíduos mudam de posição conforme o processamento |
+| Standardized difference between means | Separation between populations | Sensitivity of population contrasts |
+| Wasserstein distance | Distance between distributions | Changes in the distribution as a whole |
+| Spearman correlation | Stability of individual ranking | How much decisions alter individuals' ranking |
+| Percentile change | Relative reclassification | How many individuals change position depending on processing |
 
-As distâncias entre distribuições devem ser apresentadas em uma escala comparável entre configurações.
+Distances between distributions should be presented on a scale that is comparable across configurations.
 
-### Uma propriedade matemática importante
+### An important mathematical property
 
-Considere um score bruto $S_i$.
+Consider a raw score $S_i$.
 
-Na normalização global:
+Under global normalization:
 
 $$Z_i=\frac{S_i-\mu_{\mathrm{global}}}{\sigma_{\mathrm{global}}}$$
 
-Na normalização baseada na população EUR:
+Under normalization based on the EUR population:
 
 $$Z_{i,\mathrm{EUR}}=\frac{S_i-\mu_{\mathrm{EUR}}}{\sigma_{\mathrm{EUR}}}$$
 
-Ambas são transformações afins comuns a todos os indivíduos.
+Both are affine transformations common to every individual.
 
-Consequentemente, quando aplicadas ao mesmo conjunto de scores, preservam a ordenação individual e as diferenças padronizadas entre populações.
+Consequently, when applied to the same set of scores, they preserve individual ranking and the standardized differences between populations.
 
-Portanto, se utilizarmos a diferença padronizada entre médias como indicador, essas duas normalizações produzirão o mesmo resultado.
+Therefore, if we use the standardized difference between means as our indicator, these two normalizations will produce the same result.
 
-Isso é uma propriedade matemática, não uma descoberta empírica.
+This is a mathematical property, not an empirical discovery.
 
-Por outro lado, a normalização específica por população:
+By contrast, population-specific normalization:
 
 $$Z_{i,g}=\frac{S_i-\mu_g}{\sigma_g}$$
 
-modifica a posição relativa dos indivíduos quando comparamos populações distintas.
+modifies individuals' relative position when comparing different populations.
 
-Essa transformação altera o referencial da comparação.
+This transformation changes the reference frame of the comparison.
 
-O projeto precisa separar mudanças reais decorrentes do processamento genômico de mudanças esperadas matematicamente pela escolha da escala.
+The project needs to separate real changes driven by genomic processing from changes that are mathematically expected purely from the choice of scale.
 
-## 5. Como quantificar a contribuição das decisões técnicas?
+## 5. How do we quantify the contribution of technical decisions?
 
-Proponho comparar cada configuração com o baseline.
+I propose comparing each configuration against the baseline.
 
-Para duas populações $g$ e $h$, definimos:
+For two populations $g$ and $h$, define:
 
 $$D_{g,h}^{(k)}$$
 
-como a distância padronizada entre suas distribuições sob a configuração analítica $k$.
+as the standardized distance between their distributions under analytical configuration $k$.
 
-A sensibilidade à configuração pode ser expressa por:
+Sensitivity to the configuration can be expressed as:
 
 $$\Delta D_{g,h}^{(k)} = D_{g,h}^{(k)} - D_{g,h}^{(\mathrm{baseline})}$$
 
-Assim, poderemos responder perguntas concretas:
+This lets us answer concrete questions:
 
-- Quanto a inclusão de variantes adicionais, corretamente harmonizadas, modificou a separação entre AFR e EUR?
-- Quanto o tratamento de genótipos ausentes modificou a distribuição dos scores em AMR?
-- Qual proporção dos indivíduos mudou de decil quando alteramos a estratégia de processamento?
+- How much did including additional, correctly harmonized variants change the separation between AFR and EUR?
+- How much did the handling of missing genotypes change the score distribution in AMR?
+- What proportion of individuals changed decile when we altered the processing strategy?
 
-Para avaliar a incerteza dessas estimativas, utilizaremos bootstrap com reamostragem estratificada por população.
+To assess the uncertainty of these estimates, we use bootstrap with population-stratified resampling.
 
-**Ressalva:** se modificarmos vários parâmetros simultaneamente, suas contribuições poderão interagir. Por isso, a análise principal deverá alterar um fator por vez, seguida de uma análise fatorial das combinações que apresentarem efeitos relevantes.
+**Caveat:** if we modify several parameters simultaneously, their contributions may interact. For this reason, the main analysis should vary one factor at a time, followed by a factorial analysis of the combinations that show relevant effects.
 
-### O que poderemos concluir?
+### What can we conclude?
 
-Uma conclusão possível, caso os resultados a sustentem, seria:
+One possible conclusion, if the results support it, would be:
 
 > Technical processing choices accounted for substantial variation in the observed separation between PRS distributions.
 
-Mas eu evitaria:
+But I would avoid:
 
 > Technical artifacts explain X% of ancestry-related PRS differences.
 
-A segunda afirmação exigiria uma decomposição causal que esse desenho, isoladamente, não permite estabelecer.
+The second statement would require a causal decomposition that this design, on its own, does not allow us to establish.
 
-## 6. Figura científica principal
+## 6. Main scientific figure
 
-Minha proposta é uma figura composta por três painéis.
+My proposal is a figure made of three panels.
 
-### Painel A — Distribuições dos PRS
+### Panel A — PRS distributions
 
-Violin plots ou density plots mostrando as distribuições por população em diferentes configurações.
+Violin plots or density plots showing the distributions by population across different configurations.
 
-A comparação deverá utilizar escalas adequadas para evitar que uma mudança de unidade seja interpretada como mudança substantiva.
+The comparison should use appropriate scales to avoid a unit change being interpreted as a substantive change.
 
-### Painel B — Sensibilidade dos contrastes populacionais
+### Panel B — Sensitivity of population contrasts
 
-Heatmap com:
+Heatmap with:
 
-- Linhas: comparações entre populações.
-- Colunas: configurações analíticas.
-- Valores: mudanças nas diferenças padronizadas em relação ao baseline.
+- Rows: between-population comparisons.
+- Columns: analytical configurations.
+- Values: changes in standardized differences relative to the baseline.
 
-Esse será o painel principal para responder à pergunta científica.
+This will be the main panel for answering the scientific question.
 
-### Painel C — Estabilidade individual
+### Panel C — Individual-level stability
 
-Scatter plot comparando os scores individuais entre duas configurações de processamento.
+Scatter plot comparing individual scores between two processing configurations.
 
-Complementaremos com a correlação de Spearman e a proporção de indivíduos que mudaram de decil.
+We complement it with the Spearman correlation and the proportion of individuals who changed decile.
 
-Esse painel mostrará se as escolhas técnicas apenas modificaram a escala ou também alteraram a ordenação dos indivíduos.
+This panel will show whether the technical choices only changed the scale or also altered individuals' ordering.
 
-## 7. Publicação em inglês — versão revisada
+## 7. English-language publication — revised version
 
-**Título sugerido:** How much of the variation in PRS distributions is driven by analytical choices?
+**Suggested title:** How much of the variation in PRS distributions is driven by analytical choices?
 
-**Rascunho condicionado à execução do projeto:**
+**Draft, contingent on completing the project:**
 
 > Polygenic risk scores are often compared across genetically diverse populations. But before interpreting differences in their distributions, we should ask a more fundamental question:
 >
@@ -238,37 +235,37 @@ Esse painel mostrará se as escolhas técnicas apenas modificaram a escala ou ta
 >
 > #StatisticalGenetics #Bioinformatics #PolygenicRiskScores
 
-## 8. Avaliação estratégica
+## 8. Strategic assessment
 
-Considero essa pergunta mais forte para posicionamento científico do que a proposta original.
+I consider this question stronger for scientific positioning than the original proposal.
 
-A primeira versão demonstraria que você sabe calcular PRS e interpretar distribuições entre populações.
+The first version would demonstrate that you know how to compute a PRS and interpret distributions across populations.
 
-A versão revisada permite demonstrar algo adicional: capacidade de avaliar criticamente a robustez de um procedimento computacional e identificar quais decisões analíticas modificam seus resultados.
+The revised version lets you demonstrate something additional: the ability to critically assess the robustness of a computational procedure and identify which analytical decisions change its results.
 
-Isso é relevante para três perfis profissionais:
+This is relevant to three professional profiles:
 
-| Carreira | Competência demonstrada |
+| Career | Competency demonstrated |
 |---|---|
-| Academic faculty | Formulação de hipóteses metodológicas, desenho experimental e análise de sensibilidade |
-| Senior Bioinformatician | Validação de pipelines, QC, harmonização, reprodutibilidade e avaliação de robustez |
-| Computational Genomics / Industry | Caracterização de fontes de variabilidade, padronização e confiabilidade analítica |
+| Academic faculty | Formulating methodological hypotheses, experimental design, and sensitivity analysis |
+| Senior Bioinformatician | Pipeline validation, QC, harmonization, reproducibility, and robustness assessment |
+| Computational Genomics / Industry | Characterizing sources of variability, standardization, and analytical reliability |
 
-### Recomendação: uma delimitação adicional
+### Recommendation: an additional refinement
 
-Eu refinaria a pergunta científica para:
+I would refine the scientific question to:
 
 > How much do technical processing choices contribute to the observed differences in PRS distributions across populations, and which differences are introduced or removed by normalization?
 
-Essa versão separa duas questões que frequentemente são confundidas:
+This version separates two questions that are frequently conflated:
 
-1. **Processamento genômico:** pode modificar os valores calculados dos scores e, consequentemente, as diferenças observadas entre populações.
-2. **Normalização:** pode modificar a escala, o referencial e a interpretação dos scores sem necessariamente modificar a informação genética subjacente.
+1. **Genomic processing:** can change the computed score values and, consequently, the observed differences between populations.
+2. **Normalization:** can change the scale, the reference frame, and the interpretation of the scores without necessarily changing the underlying genetic information.
 
-A primeira exige avaliação empírica.
+The first requires empirical evaluation.
 
-A segunda combina propriedades matemáticas conhecidas com uma avaliação empírica de suas consequências.
+The second combines known mathematical properties with an empirical evaluation of their consequences.
 
-O resultado mais interessante não será necessariamente encontrar grandes diferenças entre pipelines. Demonstrar que determinadas conclusões permanecem estáveis apesar das decisões técnicas também constitui um resultado metodológico relevante.
+The most interesting outcome will not necessarily be finding large differences between pipelines. Demonstrating that certain conclusions remain stable despite the technical decisions is also a relevant methodological result.
 
-Esse deve ser o objetivo do projeto: quantificar a robustez dos contrastes entre distribuições de PRS, sem confundir sensibilidade analítica com validade preditiva ou diferenças de risco genético.
+That should be the project's goal: quantify the robustness of contrasts between PRS distributions, without conflating analytical sensitivity with predictive validity or genetic risk differences.

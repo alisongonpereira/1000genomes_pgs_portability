@@ -1,55 +1,57 @@
-# Análise fatorial — Etapa B
+# Factorial analysis — Stage B
 
-Desenho 2 (harmonização) × 7 (normalização), por par de população (10 pares).
-O eixo "genótipos ausentes" ficou fora: só tem 1 nível observável nesses dados
-(ver `02_harmonization_configs/config.yaml`), não dá pra fatorializar um eixo
-sem variação.
+Design: 2 (harmonization) x 7 (normalization), per population pair (10 pairs).
+The "missing genotypes" axis is left out: it only has 1 observable level in
+this data (see `02_harmonization_configs/config.yaml`), and an axis with no
+variation can't be factorialized.
 
-## Pergunta
+## Question
 
-O quanto uma normalização reduz a separação entre populações depende de qual
-configuração de harmonização foi usada antes? Testado como interação:
+Does how much a normalization reduces the separation between populations
+depend on which harmonization configuration was used upstream? Tested as an
+interaction:
 
 ```
-efeito_normalização(config) = D_g,h[normalização] − D_g,h[SUM bruto]  (dentro da mesma config)
-interação = efeito_normalização(Config 2) − efeito_normalização(Config 1)
+normalization_effect(config) = D_g,h[normalization] − D_g,h[raw SUM]  (within the same config)
+interaction = normalization_effect(Config 2) − normalization_effect(Config 1)
 ```
 
-## Resultado
+## Result
 
-| normalização | \|interação\| média | \|interação\| máxima |
+| normalization | mean \|interaction\| | max \|interaction\| |
 |---|---|---|
-| `Z_global` | 0,0000 | 0,0000 |
-| `Z_EUR` | 0,0000 | 0,0000 |
-| `Z_percop` | 0,1560 | 0,3361 |
-| `Z_MostSimilarPop` | 0,1564 | 0,3361 |
-| `Z_norm1` | 0,1582 | 0,3491 |
-| `Z_norm2` | 0,1583 | 0,3491 |
+| `Z_global` | 0.0000 | 0.0000 |
+| `Z_EUR` | 0.0000 | 0.0000 |
+| `Z_percop` | 0.1560 | 0.3361 |
+| `Z_MostSimilarPop` | 0.1564 | 0.3361 |
+| `Z_norm1` | 0.1582 | 0.3491 |
+| `Z_norm2` | 0.1583 | 0.3491 |
 
-**As transformações afins simples (`Z_global`, `Z_EUR`) têm interação exatamente
-zero** — confirma de novo, agora sob um ângulo diferente, a propriedade
-matemática da Seção 4: como são a mesma transformação linear aplicada a todo
-mundo, o "quanto elas mudam D_g,h" não pode depender de nada além da própria
-escala, então é sempre zero, em qualquer configuração de harmonização.
+**The simple affine transforms (`Z_global`, `Z_EUR`) have exactly zero
+interaction** — this re-confirms, from a different angle, the mathematical
+property from Section 4: since they are the same linear transformation
+applied to everyone, "how much they change D_g,h" cannot depend on anything
+beyond their own scale, so it is always zero, under any harmonization
+configuration.
 
-**As normalizações por ancestralidade (nativas do pgsc_calc, e `Z_percop`)
-têm interação real.** O caso mais extremo é o par EUR-SAS: no baseline a
-separação já era quase nula (D=0,008), então a normalização tem pouco a
-"achatar"; na Config 2 (ambíguas incluídas) surge separação real (D=-0,218),
-e aí a normalização faz trabalho de verdade. O mesmo mecanismo aparece em
-AFR-EAS e AMR-EAS.
+**Ancestry-aware normalizations (pgsc_calc's native ones, and `Z_percop`)
+show a real interaction.** The most extreme case is the EUR-SAS pair: at
+baseline the separation was already nearly zero (D=0.008), so normalization
+had little to "flatten"; under Config 2 (ambiguous included) a real
+separation appears (D=-0.218), and there normalization does real work. The
+same mechanism shows up in AFR-EAS and AMR-EAS.
 
-## Interpretação para o projeto
+## Interpretation for the project
 
-Isso refina a conclusão da Seção 8 do `PROJECT_PLAN.md`: normalização por
-ancestralidade não é uma correção universal e independente da harmonização —
-**quanto ela "esconde" de uma escolha técnica anterior depende dessa escolha**.
-Duas pessoas que discordam só na inclusão de 30 SNPs ambíguos podem chegar a
-conclusões diferentes sobre "quanto a normalização resolveu o problema",
-mesmo usando o mesmo método de normalização.
+This refines the conclusion from `PROJECT_PLAN.md` Section 8: ancestry-aware
+normalization is not a universal correction independent of harmonization —
+**how much it "hides" a prior technical choice depends on that choice**. Two
+people who disagree only on whether to include 30 ambiguous SNPs can reach
+different conclusions about "how much the normalization fixed the problem",
+even using the same normalization method.
 
-## Arquivos
+## Files
 
-- `factorial_Dgh.tsv` — grade completa 2×7, D_g,h por par de população.
-- `factorial_interaction.tsv` — interação linha a linha (10 pares × 6 métricas, SUM excluído por ser a referência).
-- `interaction_summary.tsv` — tabela acima.
+- `factorial_Dgh.tsv` — full 2x7 grid, D_g,h per population pair.
+- `factorial_interaction.tsv` — interaction row by row (10 pairs x 6 metrics, SUM excluded since it's the reference).
+- `interaction_summary.tsv` — the table above.

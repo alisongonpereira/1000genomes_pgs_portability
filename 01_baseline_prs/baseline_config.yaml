@@ -1,4 +1,4 @@
-# Etapa A -- configuracao baseline do PRS313_BC (PGS000004)
+# Stage A -- PRS313_BC (PGS000004) baseline configuration
 pgs_id: PGS000004
 pgs_name: PRS313_BC
 genome_build: GRCh37
@@ -8,8 +8,8 @@ scorefile_source: "PGS Catalog, harmonized (hmPOS), https://ftp.ebi.ac.uk/pub/da
 target_genotypes:
   source: "1000 Genomes Phase 3 (NCBI mirror), release 20130502"
   n_samples: 2504
-  extraction: "bcftools remote region query (-R), por posicao exata, por cromossomo"
-  n_positions_extracted: 59693  # 313 do scorefile + 59385 do painel de ancestralidade (ver abaixo)
+  extraction: "bcftools remote region query (-R), exact position, per chromosome"
+  n_positions_extracted: 59693  # 313 from the scorefile + 59385 from the ancestry panel (see below)
 
 pipeline:
   tool: pgsc_calc
@@ -24,52 +24,54 @@ pipeline:
     --outdir 01_baseline_prs/pgsc_calc_run
 
 ancestry_panel:
-  status: concluido
+  status: done
   reference_source: "pgsc_calc ancestry reference DB (1000G-only), https://ftp.ebi.ac.uk/pub/databases/spot/pgs/resources/pgsc_1000G_v1.tar.zst"
-  download_method: "aria2c (-x5 -s15 -k500M), reinvocado em loop externo com -c (continue) ate completar -- o continuo e os blocos manuais via curl Range falharam repetidamente nesse host"
-  problema_estrutural_descoberto: >
-    Os 313 SNPs do PGS000004 nao sao um painel de ancestralidade: apos LD-pruning
-    bounded pelo alvo, sobravam so 114 marcadores mal distribuidos (varios cromossomos
-    com zero), quebrando a etapa INTERSECT_THINNED. Resolvido extraindo um painel de
-    ancestralidade dedicado, genome-wide, direto do proprio painel de referencia
-    (1000G GRCh37), independente do alvo de 313 SNPs.
-  painel_ancestralidade_dedicado:
-    metodo: "plink2 QC (geno/mind/maf/hwe, iguais aos defaults do pgsc_calc) + --indep-pairwise 1000 50 0.05, excluindo high-LD-regions-hg19-GRCh37.txt (asset do proprio pgsc_calc), direto no GRCh37_1000G_ALL.pgen do painel de referencia (84.8M variantes antes do QC)"
-    n_marcadores_apos_qc: 3675797
-    n_marcadores_apos_pruning: 59385
-    distribuicao: "bem distribuida nos 22 autossomos (1079-4816 por cromossomo), sem cromossomo vazio"
-  resultado: "colunas SUM, Z_MostSimilarPop, Z_norm1, Z_norm2, percentile_MostSimilarPop em kgpphase3_pgs.txt.gz; PCA (PC1-10) + atribuicao RF de ancestralidade em kgpphase3_popsimilarity.txt.gz"
-  validacao: "atribuicao de superpopulacao via PCA+RF do pgsc_calc discorda do painel real do 1000G em so 5/2504 amostras (0.20%)"
+  download_method: "aria2c (-x5 -s15 -k500M), re-invoked in an external loop with -c (continue) until it finished -- both the plain continuous download and manual curl Range chunks repeatedly failed against this host"
+  structural_problem_found: >
+    PGS000004's 313 SNPs are not an ancestry panel: after target-bound
+    LD-pruning, only 114 markers survived, poorly distributed (several
+    chromosomes with zero), breaking the INTERSECT_THINNED step. Resolved
+    by extracting a dedicated, genome-wide ancestry panel straight from the
+    reference panel itself (1000G GRCh37), independent of the 313-SNP target.
+  dedicated_ancestry_panel:
+    method: "plink2 QC (geno/mind/maf/hwe, same defaults as pgsc_calc) + --indep-pairwise 1000 50 0.05, excluding high-LD-regions-hg19-GRCh37.txt (a pgsc_calc asset), run directly on the reference panel's GRCh37_1000G_ALL.pgen (84.8M variants before QC)"
+    n_markers_after_qc: 3675797
+    n_markers_after_pruning: 59385
+    distribution: "well distributed across the 22 autosomes (1079-4816 per chromosome), no empty chromosome"
+  result: "SUM, Z_MostSimilarPop, Z_norm1, Z_norm2, percentile_MostSimilarPop columns in kgpphase3_pgs.txt.gz; PCA (PC1-10) + RF ancestry assignment in kgpphase3_popsimilarity.txt.gz"
+  validation: "pgsc_calc's PCA+RF superpopulation assignment disagrees with the true 1000G panel in only 5/2504 samples (0.20%)"
 
-harmonizacao:
-  politica: "apenas variantes nao ambiguas (A/T, C/G excluidas, --keep_ambiguous false) -- Configuracao 1 da matriz experimental (Etapa B). Ver 02_harmonization_configs/ para Configuracao 2 (--keep_ambiguous true)."
-  genotipos_ausentes: >
-    CORRECAO: na pratica rodou com mean-imputation (default do plink2 --score),
-    nao exclusao -- a logica do pgsc_calc so aplica no-mean-imputation quando
-    n_samples<50 (nosso alvo tem 2504). Sem efeito pratico: o VCF integrado do
-    1000G Phase 3 nao tem nenhum genotipo ausente (F_MISS=0 em todas as variantes
-    verificadas), entao excluir vs imputar da resultado identico aqui. Ver
-    02_harmonization_configs/config.yaml para detalhes.
+harmonization:
+  policy: "non-ambiguous variants only (A/T, C/G excluded, --keep_ambiguous false) -- Configuration 1 of the Stage B experimental matrix. See 02_harmonization_configs/ for Configuration 2 (--keep_ambiguous true)."
+  missing_genotypes: >
+    CORRECTION: in practice this ran with mean-imputation (plink2 --score's
+    default), not exclusion -- pgsc_calc's logic only applies
+    no-mean-imputation when n_samples<50 (our target has 2504). No practical
+    effect: 1000G Phase 3's integrated VCF has zero missing genotypes
+    (F_MISS=0 at every checked variant), so exclude vs. impute gives an
+    identical result here. See 02_harmonization_configs/config.yaml for details.
 
 variant_match_summary:
   matched: 274          # 87.5%
-  excluded_ambiguous: 30  # 9.6% -- exclusao por desenho (politica acima)
-  unmatched: 9           # 2.9% -- sitios multialelicos no 1000G Phase 3,
-                          # descartados pelo plink2 --max-alleles 2 do pgsc_calc
-                          # antes do matching (verificado manualmente no VCF bruto,
-                          # nao e falha de extracao nem ausencia real no 1000G)
+  excluded_ambiguous: 30  # 9.6% -- excluded by design (see policy above)
+  unmatched: 9           # 2.9% -- multiallelic sites in 1000G Phase 3,
+                          # dropped by pgsc_calc's plink2 --max-alleles 2
+                          # before matching (manually verified against the
+                          # raw VCF -- not an extraction failure nor a true
+                          # absence from 1000G)
   total: 313
 
-output_metric: SUM  # score bruto (soma de dosagem x peso); AVG tambem disponivel
-denom_per_sample: 548  # 2 x 274 variantes matched (diploide)
+output_metric: SUM  # raw score (sum of dosage x weight); AVG also available
+denom_per_sample: 548  # 2 x 274 matched variants (diploid)
 
-notas:
-  - "Numero de variantes usadas (274) e inferior ao benchmark de ~290-292 reportado para
-     um cohort imputado contra o 1000G: a diferenca se explica pelos 9 sitios multialelicos,
-     que imputadores tipicamente ja separam em registros bialelicos antes da pontuacao,
-     evitando essa exclusao especifica."
-  - "Z_norm1/Z_norm2/Z_MostSimilarPop zeram a media (-0.02 a 0.03) e normalizam o SD (~0.95-1.09)
-     em TODAS as superpopulacoes, contra medias de -0.01 a -0.57 e SDs de 0.52-0.61 no SUM bruto.
-     Confirma empiricamente a Secao 4 do PROJECT_PLAN.md: a normalizacao por ancestralidade
-     remove por construcao as diferencas de distribuicao entre populacoes -- isso nao significa
-     que a diferenca genetica 'desapareceu', e a transformacao que a produz."
+notes:
+  - "The number of variants used (274) is lower than the ~290-292 benchmark reported
+     for a cohort imputed against 1000G: the gap is explained by the 9 multiallelic
+     sites, which imputation tools typically already split into biallelic records
+     before scoring, avoiding this specific exclusion."
+  - "Z_norm1/Z_norm2/Z_MostSimilarPop pull the mean to near zero (-0.02 to 0.03) and
+     normalize the SD (~0.95-1.09) in EVERY superpopulation, versus means of -0.01 to
+     -0.57 and SDs of 0.52-0.61 in the raw SUM. Empirically confirms Section 4 of
+     PROJECT_PLAN.md: ancestry normalization removes distributional differences between
+     populations by construction -- this does not mean the genetic difference
+     'disappeared', it is the transformation that produces that appearance."
