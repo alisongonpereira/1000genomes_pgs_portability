@@ -28,6 +28,29 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from matplotlib.lines import Line2D
+from shapely.geometry import box
+
+# Cut the map in the Atlantic instead of the Pacific: standard maps (cut at
+# +-180) read AMR | AFR/EUR | ASIA left-to-right. Cutting here instead gives
+# AFR/EUR | ASIA | AMR -- continents in one clean sweep, since that's the
+# actual eastward order once you stop breaking the circle at the Pacific.
+CUT_LON = -25.0
+
+
+def recenter_lon(lon):
+    return lon if lon >= CUT_LON else lon + 360
+
+
+def recenter_world(world):
+    """Split polygons that straddle CUT_LON before shifting the western
+    piece by +360 -- a naive coordinate shift alone would draw a stray
+    horizontal line across any landmass that crosses the new antimeridian
+    (here, just Greenland/Iceland)."""
+    east = gpd.clip(world, box(CUT_LON, -90, 180, 90))
+    west = gpd.clip(world, box(-180, -90, CUT_LON, 90))
+    west = west.copy()
+    west["geometry"] = west.translate(xoff=360)
+    return pd.concat([east, west], ignore_index=True)
 
 logging.basicConfig(level=logging.INFO, format="[STEP] %(message)s")
 log = logging.getLogger(__name__)
@@ -99,6 +122,8 @@ def main():
     log.info(f"{len(data)} populations plotted, global mean SUM = {data['mean_sum'].mean():.4f}")
 
     world = gpd.read_file(gpd.datasets.get_path("naturalearth_lowres"))
+    world = recenter_world(world)
+    data["lon"] = data["lon"].apply(recenter_lon)
 
     fig, ax = plt.subplots(figsize=(16, 9))
     fig.patch.set_facecolor("#fcfcfb")
@@ -132,7 +157,7 @@ def main():
             fontsize=7.5, ha="center", color=TEXT_SECONDARY, zorder=4,
         )
 
-    ax.set_xlim(-130, 158)
+    ax.set_xlim(CUT_LON - 3, CUT_LON + 335)
     ax.set_ylim(-45, 72)
     ax.set_xticks([])
     ax.set_yticks([])
