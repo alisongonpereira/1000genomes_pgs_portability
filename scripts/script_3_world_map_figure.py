@@ -27,6 +27,7 @@ import geopandas as gpd
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from matplotlib.lines import Line2D
 from shapely.geometry import box
 
 # Cut the map in the Atlantic instead of the Pacific: standard maps (cut at
@@ -124,8 +125,14 @@ def main():
     world = recenter_world(world)
     data["lon"] = data["lon"].apply(recenter_lon)
 
-    fig, ax = plt.subplots(figsize=(16, 9))
+    fig = plt.figure(figsize=(16, 10.5))
     fig.patch.set_facecolor("#fcfcfb")
+    gs = fig.add_gridspec(2, 3, height_ratios=[11, 1], hspace=0.06, wspace=0.15,
+                           left=0.02, right=0.98, top=0.90, bottom=0.04)
+    ax = fig.add_subplot(gs[0, :])
+    ax_shape = fig.add_subplot(gs[1, 0])
+    ax_size = fig.add_subplot(gs[1, 1])
+    ax_cbar = fig.add_subplot(gs[1, 2])
     ax.set_facecolor("#fcfcfb")
 
     world.plot(ax=ax, color="#eceae3", edgecolor="#d8d5cb", linewidth=0.5, zorder=1)
@@ -163,18 +170,41 @@ def main():
     for spine in ax.spines.values():
         spine.set_visible(False)
 
-    # No colorbar / shape / size legend and no bottom disclaimer box on the
-    # image itself -- kept minimal on purpose for a share-ready hero image;
-    # the accompanying post text carries that explanation instead.
+    # Legends live in their own horizontal strip below the map, not on top
+    # of it, so the map stays the visual focus: superpop/shape, then size,
+    # then the color gradient, left to right.
+    for a in (ax_shape, ax_size, ax_cbar):
+        a.axis("off")
+
+    shape_handles = [
+        Line2D([0], [0], marker=m, color="w", markerfacecolor="#898781", markeredgecolor="#898781", markersize=10, label=sp)
+        for sp, m in SUPERPOP_MARKERS.items()
+    ]
+    ax_shape.legend(handles=shape_handles, title="Superpopulation", loc="center", ncol=len(shape_handles),
+                     frameon=False, fontsize=9.5, title_fontsize=9.5, handletextpad=0.5, columnspacing=1.2)
+
+    size_handles = [
+        Line2D([0], [0], marker="o", color="w", markerfacecolor="#898781", markeredgecolor="#898781",
+               alpha=0.7, markersize=np.sqrt(n * 3.2), label=f"n={n}")
+        for n in [60, 100, 113]
+    ]
+    ax_size.legend(handles=size_handles, title="Sample size", loc="center", ncol=len(size_handles),
+                    frameon=False, fontsize=9.5, title_fontsize=9.5, handletextpad=0.8, columnspacing=1.6,
+                    borderpad=1.4)
+
+    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+    sm.set_array([])
+    cbar_inset = ax_cbar.inset_axes([0.08, 0.5, 0.84, 0.28])
+    cbar = fig.colorbar(sm, cax=cbar_inset, orientation="horizontal")
+    cbar.set_label("Mean PRS313_BC raw score (SUM)", color=TEXT_PRIMARY, fontsize=9.5)
+    cbar.ax.tick_params(colors=TEXT_SECONDARY, labelsize=8)
 
     fig.suptitle(
         "PRS313_BC (PGS000004, breast cancer) — mean raw score across 1000 Genomes populations\n"
         "Populations per the 1000 Genomes Project's own classification — full analysis: "
         "github.com/alisongonpereira/1000genomes_pgs_portability",
-        fontsize=14, color=TEXT_PRIMARY, ha="center", y=0.99, linespacing=1.6,
+        fontsize=14, color=TEXT_PRIMARY, ha="center", y=0.985, linespacing=1.6,
     )
-
-    fig.tight_layout(rect=[0, 0, 1, 0.94])
 
     out_png = OUTDIR / "world_map_prs.png"
     out_pdf = OUTDIR / "world_map_prs.pdf"
