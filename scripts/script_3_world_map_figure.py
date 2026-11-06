@@ -27,7 +27,6 @@ import geopandas as gpd
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from matplotlib.lines import Line2D
 from shapely.geometry import box
 
 # Cut the map in the Atlantic instead of the Pacific: standard maps (cut at
@@ -164,45 +163,18 @@ def main():
     for spine in ax.spines.values():
         spine.set_visible(False)
 
-    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
-    sm.set_array([])
-    cbar = fig.colorbar(sm, ax=ax, orientation="vertical", fraction=0.025, pad=0.01)
-    cbar.set_label("Mean PRS313_BC raw score (SUM) — Config 1 baseline", color=TEXT_PRIMARY, fontsize=10)
-    cbar.ax.tick_params(colors=TEXT_SECONDARY)
+    # No colorbar / shape / size legend and no bottom disclaimer box on the
+    # image itself -- kept minimal on purpose for a share-ready hero image;
+    # the accompanying post text carries that explanation instead.
 
-    shape_legend = [
-        Line2D([0], [0], marker=m, color="w", markerfacecolor="#898781", markersize=10, label=sp)
-        for sp, m in SUPERPOP_MARKERS.items()
-    ]
-    leg1 = ax.legend(handles=shape_legend, title="Superpopulation (shape)", loc="lower left",
-                      frameon=False, fontsize=9, title_fontsize=9)
-    ax.add_artist(leg1)
-
-    size_legend = [
-        Line2D([0], [0], marker="o", color="w", markerfacecolor="#898781", alpha=0.6,
-               markersize=np.sqrt(n * 3.2), label=f"n={n}")
-        for n in [60, 100, 113]
-    ]
-    ax.legend(handles=size_legend, title="Sample size (bubble area)", loc="lower right",
-              frameon=False, fontsize=9, title_fontsize=9, labelspacing=1.8)
-
-    ax.set_title(
-        "PRS313_BC (PGS000004, breast cancer) — mean raw score across 26 1000 Genomes populations",
-        fontsize=15, color=TEXT_PRIMARY, loc="left", pad=14,
+    fig.suptitle(
+        "PRS313_BC (PGS000004, breast cancer) — mean raw score across 1000 Genomes populations\n"
+        "Populations per the 1000 Genomes Project's own classification — full analysis: "
+        "github.com/alisongonpereira/1000genomes_pgs_portability",
+        fontsize=14, color=TEXT_PRIMARY, ha="center", y=0.99, linespacing=1.6,
     )
 
-    warning = (
-        "This is the RAW, uncalibrated score — not a disease-risk map.\n"
-        "The same weights give very different pictures depending on harmonization and normalization choices\n"
-        "(see the full analysis: a simple affine rescaling preserves this exact pattern; a population-specific\n"
-        "one erases it by construction). Populations are plotted at their real 1000G collection site."
-    )
-    fig.text(
-        0.5, 0.045, warning, ha="center", va="bottom", fontsize=9.5, color="#7a3b00",
-        bbox=dict(boxstyle="round,pad=0.5", facecolor="#fff3e0", edgecolor="#eda100", linewidth=1.2),
-    )
-
-    fig.tight_layout(rect=[0, 0.09, 1, 1])
+    fig.tight_layout(rect=[0, 0, 1, 0.94])
 
     out_png = OUTDIR / "world_map_prs.png"
     out_pdf = OUTDIR / "world_map_prs.pdf"
