@@ -97,8 +97,17 @@ POP_COORDS = {
 }
 
 SUPERPOP_MARKERS = {"AFR": "o", "AMR": "s", "EAS": "^", "EUR": "D", "SAS": "*"}
-TEXT_PRIMARY = "#0b0b0b"
-TEXT_SECONDARY = "#52514e"
+
+# Palette sampled from the reference slide (navy card, orange eyebrow, warm
+# white title, muted blue-gray body text).
+BG_NAVY = "#1E2A3A"
+TEXT_WHITE = "#FBF7F0"
+ACCENT_ORANGE = "#F2A65A"
+TEXT_MUTED = "#A4AEBC"
+OCEAN_LIGHT = "#CFE0EE"
+LAND_GRAY = "#8A8F99"
+LAND_EDGE = "#6E7480"
+POP_LABEL_COLOR = "#16202C"
 
 
 def load_scores():
@@ -125,17 +134,17 @@ def main():
     world = recenter_world(world)
     data["lon"] = data["lon"].apply(recenter_lon)
 
-    fig = plt.figure(figsize=(16, 10.5))
-    fig.patch.set_facecolor("#fcfcfb")
-    gs = fig.add_gridspec(2, 3, height_ratios=[11, 1], hspace=0.06, wspace=0.15,
-                           left=0.02, right=0.98, top=0.90, bottom=0.04)
+    fig = plt.figure(figsize=(16, 8.6))
+    fig.patch.set_facecolor(BG_NAVY)
+    gs = fig.add_gridspec(2, 3, height_ratios=[10, 1.8], hspace=0.05, wspace=0.12,
+                           left=0.02, right=0.98, top=0.775, bottom=0.05)
     ax = fig.add_subplot(gs[0, :])
     ax_shape = fig.add_subplot(gs[1, 0])
     ax_size = fig.add_subplot(gs[1, 1])
     ax_cbar = fig.add_subplot(gs[1, 2])
-    ax.set_facecolor("#fcfcfb")
+    ax.set_facecolor(OCEAN_LIGHT)
 
-    world.plot(ax=ax, color="#eceae3", edgecolor="#d8d5cb", linewidth=0.5, zorder=1)
+    world.plot(ax=ax, color=LAND_GRAY, edgecolor=LAND_EDGE, linewidth=0.5, zorder=1)
 
     vmax = float(np.abs(data["mean_sum"] - data["mean_sum"].mean()).max())
     norm = plt.Normalize(vmin=data["mean_sum"].mean() - vmax, vmax=data["mean_sum"].mean() + vmax)
@@ -146,7 +155,7 @@ def main():
         ax.scatter(
             sub["lon"], sub["lat"],
             s=sub["n"] * 3.2, c=sub["mean_sum"], cmap=cmap, norm=norm,
-            marker=marker, edgecolors="white", linewidths=1.1, zorder=3, alpha=0.92,
+            marker=marker, edgecolors=BG_NAVY, linewidths=1.1, zorder=3, alpha=0.95,
         )
 
     # per-population label offsets (points), to dodge the tight UK and
@@ -160,11 +169,11 @@ def main():
         dx, dy = LABEL_OFFSETS.get(r["pop"], (0, 7))
         ax.annotate(
             r["pop"], (r["lon"], r["lat"]), textcoords="offset points", xytext=(dx, dy),
-            fontsize=7.5, ha="center", color=TEXT_SECONDARY, zorder=4,
+            fontsize=11, ha="center", color=POP_LABEL_COLOR, fontweight="bold", zorder=4,
         )
 
     ax.set_xlim(CUT_LON - 3, CUT_LON + 335)
-    ax.set_ylim(-45, 72)
+    ax.set_ylim(-38, 66)
     ax.set_xticks([])
     ax.set_yticks([])
     for spine in ax.spines.values():
@@ -176,35 +185,45 @@ def main():
     for a in (ax_shape, ax_size, ax_cbar):
         a.axis("off")
 
+    legend_kwargs = dict(frameon=False, fontsize=15, title_fontsize=15, labelcolor=TEXT_MUTED)
+
+    # linestyle="none" is load-bearing: Line2D defaults to drawing a connecting
+    # line through the marker, which at small size reads as odd little hatch
+    # marks flanking each legend icon.
     shape_handles = [
-        Line2D([0], [0], marker=m, color="w", markerfacecolor="#898781", markeredgecolor="#898781", markersize=10, label=sp)
+        Line2D([0], [0], marker=m, linestyle="none", markerfacecolor=TEXT_MUTED,
+               markeredgecolor=TEXT_MUTED, markersize=13, label=sp)
         for sp, m in SUPERPOP_MARKERS.items()
     ]
-    ax_shape.legend(handles=shape_handles, title="Superpopulation", loc="center", ncol=len(shape_handles),
-                     frameon=False, fontsize=9.5, title_fontsize=9.5, handletextpad=0.5, columnspacing=1.2)
+    leg_shape = ax_shape.legend(handles=shape_handles, title="Superpopulation", loc="center",
+                                 ncol=len(shape_handles), handletextpad=0.6, columnspacing=1.6, **legend_kwargs)
+    leg_shape.get_title().set_color(TEXT_WHITE)
 
     size_handles = [
-        Line2D([0], [0], marker="o", color="w", markerfacecolor="#898781", markeredgecolor="#898781",
-               alpha=0.7, markersize=np.sqrt(n * 3.2), label=f"n={n}")
+        Line2D([0], [0], marker="o", linestyle="none", markerfacecolor=TEXT_MUTED, markeredgecolor=TEXT_MUTED,
+               alpha=0.8, markersize=np.sqrt(n * 3.2) * 1.15, label=f"n={n}")
         for n in [60, 100, 113]
     ]
-    ax_size.legend(handles=size_handles, title="Sample size", loc="center", ncol=len(size_handles),
-                    frameon=False, fontsize=9.5, title_fontsize=9.5, handletextpad=0.8, columnspacing=1.6,
-                    borderpad=1.4)
+    leg_size = ax_size.legend(handles=size_handles, title="Sample size", loc="center", ncol=len(size_handles),
+                               handletextpad=0.9, columnspacing=2.0, borderpad=1.4, **legend_kwargs)
+    leg_size.get_title().set_color(TEXT_WHITE)
 
     sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
     sm.set_array([])
-    cbar_inset = ax_cbar.inset_axes([0.08, 0.5, 0.84, 0.28])
+    cbar_inset = ax_cbar.inset_axes([0.06, 0.48, 0.88, 0.3])
     cbar = fig.colorbar(sm, cax=cbar_inset, orientation="horizontal")
-    cbar.set_label("Mean PRS313_BC raw score (SUM)", color=TEXT_PRIMARY, fontsize=9.5)
-    cbar.ax.tick_params(colors=TEXT_SECONDARY, labelsize=8)
+    cbar.set_label("Mean PRS313_BC raw score (SUM)", color=TEXT_WHITE, fontsize=15)
+    cbar.ax.tick_params(colors=TEXT_MUTED, labelsize=12)
+    cbar.outline.set_visible(False)
 
-    fig.suptitle(
-        "PRS313_BC (PGS000004, breast cancer) — mean raw score across 1000 Genomes populations\n"
-        "Populations per the 1000 Genomes Project's own classification — full analysis: "
-        "github.com/alisongonpereira/1000genomes_pgs_portability",
-        fontsize=14, color=TEXT_PRIMARY, ha="center", y=0.985, linespacing=1.6,
-    )
+    fig.text(0.5, 0.975, "PRS PORTABILITY AUDIT  ·  1000 GENOMES PHASE 3",
+              ha="center", va="top", fontsize=17, color=ACCENT_ORANGE, fontweight="bold",
+              fontfamily="monospace")
+    fig.text(0.5, 0.91, "PRS313_BC — mean raw score across 1000 Genomes populations",
+              ha="center", va="top", fontsize=34, color=TEXT_WHITE, fontweight="bold")
+    fig.text(0.5, 0.825, "Populations per the 1000 Genomes Project's own classification  ·  full analysis: "
+                         "github.com/alisongonpereira/1000genomes_pgs_portability",
+              ha="center", va="top", fontsize=17, color=TEXT_MUTED)
 
     out_png = OUTDIR / "world_map_prs.png"
     out_pdf = OUTDIR / "world_map_prs.pdf"
